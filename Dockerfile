@@ -1,30 +1,32 @@
-# Base image with OpenJDK 17 (recommended for latest PaperMC)
+# Use OpenJDK 17 slim (lightweight)
 FROM openjdk:17-jdk-slim
 
-# Maintainer info
-LABEL maintainer="Krishna Mishra <your-email@example.com>"
+LABEL maintainer="Krishna Mishra"
+
+# Install required tools
+RUN apt-get update && apt-get install -y curl jq && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables
 ENV PAPER_VERSION=1.20.2 \
     HEAP_MIN=512M \
     HEAP_MAX=2G \
-    SERVER_JAR=paper-${PAPER_VERSION}.jar \
+    SERVER_JAR=paper.jar \
     EULA=true
 
-# Create a working directory for Minecraft server
+# Set working directory
 WORKDIR /minecraft
 
-# Download PaperMC jar
-RUN apt-get update && apt-get install -y curl && \
-    curl -o ${SERVER_JAR} https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}/builds/1/downloads/${SERVER_JAR} && \
-    chmod +x ${SERVER_JAR} && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Download latest PaperMC build
+RUN LATEST_BUILD=$(curl -s https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION} | jq '.builds | last') && \
+    echo "Latest build: $LATEST_BUILD" && \
+    curl -o ${SERVER_JAR} https://api.papermc.io/v2/projects/paper/versions/${PAPER_VERSION}/builds/$LATEST_BUILD/downloads/paper-${PAPER_VERSION}-${LATEST_BUILD}.jar && \
+    chmod +x ${SERVER_JAR}
 
 # Accept EULA automatically
 RUN echo "eula=${EULA}" > eula.txt
 
-# Expose Minecraft default port
+# Expose default Minecraft port
 EXPOSE 25565
 
-# Set JVM args & start server
+# Start server with memory settings
 CMD ["sh", "-c", "java -Xms${HEAP_MIN} -Xmx${HEAP_MAX} -jar ${SERVER_JAR} nogui"]
